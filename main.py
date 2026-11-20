@@ -7,6 +7,7 @@ a strip of six giant numbers under the masthead, and a big figure chip on
 every pictured panel. Canvas 1600x1600, saved as entry.png at 1024x1024.
 """
 import math
+import os
 import random
 
 from PIL import Image, ImageDraw, ImageFont
@@ -27,12 +28,23 @@ RULE = (178, 170, 154)
 DARK = (52, 48, 42)
 
 
+def _load_font(path, size):
+    try:
+        return ImageFont.truetype(path, size)
+    except OSError:
+        pass
+    plain = path.rsplit("/", 1)[-1]
+    if plain != path:
+        try:
+            return ImageFont.truetype(plain, size)
+        except OSError:
+            pass
+    return ImageFont.load_default()
+
+
 def sans(size, bold=False):
     name = "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"
-    try:
-        return ImageFont.truetype(DJ + name, size)
-    except OSError:
-        return ImageFont.load_default()
+    return _load_font(DJ + name, size)
 
 
 def serif(size, bold=False, italic=False):
@@ -42,13 +54,7 @@ def serif(size, bold=False, italic=False):
         path = LB + "LiberationSerif-Italic.ttf"
     else:
         path = DJ + "DejaVuSerif.ttf"
-    try:
-        return ImageFont.truetype(path, size)
-    except OSError:
-        try:
-            return ImageFont.truetype(DJ + "DejaVuSerif.ttf", size)
-        except OSError:
-            return ImageFont.load_default()
+    return _load_font(path, size)
 
 
 def wrap_text(d, text, font, width):
@@ -617,7 +623,24 @@ def build():
                          "Sensor Tower. Original drawings, drawn for this page.",
            font=serif(13, italic=True), fill=GREY)
 
-    im.resize((1024, 1024), Image.LANCZOS).save("entry.png")
+    out = im.resize((1024, 1024), Image.LANCZOS)
+    candidates = []
+    env_dir = os.environ.get("MAKEFUN_OUTPUT_DIR")
+    if env_dir:
+        candidates.append(env_dir)
+    candidates.append(".")
+    candidates.append(os.path.dirname(os.path.abspath(__file__)))
+    last_err = None
+    saved = False
+    for cand in candidates:
+        try:
+            out.save(os.path.join(cand, "entry.png"))
+            saved = True
+            break
+        except OSError as exc:
+            last_err = exc
+    if not saved:
+        raise last_err
 
 
 def main():
