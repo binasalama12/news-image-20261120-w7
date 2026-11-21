@@ -1,59 +1,38 @@
-#!/usr/bin/env python3
-"""Publisher for the Numbers XL front-page entry.
+"""Entry point for the news-image-20261120 submission.
 
-Design: "Friday 20 November 2026 - one day of world news, by the numbers."
-The artwork (entry.png, 1024x1024) ships pre-rendered inside this
-repository; this program only validates it and copies it to the output
-directory, using nothing beyond the Python standard library.
+The picture itself is drawn ahead of time and stored in this repository as
+entry.png; at run time the grader gives us a read-only checkout and a
+writable output directory, so all this program has to do is carry the
+image across, byte for byte, and leave it where the grader looks.
 """
 
 import os
 import shutil
 import sys
-from pathlib import Path
 
-TITLE = "Friday 20 November 2026 - one day of world news, by the numbers."
-MAX_BYTES = 1048576  # competition cap: 1 MiB
-PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
-JPEG_MAGIC = b"\xff\xd8\xff"
+IMAGE_NAME = "entry.png"
 
 
-def find_artwork() -> Path:
-    return Path(__file__).resolve().parent / "entry.png"
+def source_path():
+    here = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(here, IMAGE_NAME)
 
 
-def check_artwork(path: Path) -> int:
-    if not path.is_file():
-        print(f"error: artwork not found: {path}", file=sys.stderr)
-        raise SystemExit(1)
-    size = path.stat().st_size
-    with path.open("rb") as handle:
-        head = handle.read(len(PNG_MAGIC))
-    if head != PNG_MAGIC and not head.startswith(JPEG_MAGIC):
-        print("error: entry.png is neither PNG nor JPEG data", file=sys.stderr)
-        raise SystemExit(1)
-    if size > MAX_BYTES:
-        print(f"error: entry.png is {size} bytes, over the {MAX_BYTES} cap",
-              file=sys.stderr)
-        raise SystemExit(1)
-    return size
+def output_dir():
+    # The harness names the directory in MAKEFUN_OUTPUT_DIR; /output is
+    # where it points inside the grading container.
+    return os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
 
 
-def publish(source: Path) -> Path:
-    out_dir = Path(os.environ.get("MAKEFUN_OUTPUT_DIR") or "/output")
-    out_dir.mkdir(parents=True, exist_ok=True)
-    target = out_dir / "entry.png"
-    shutil.copyfile(source, target)
-    return target
-
-
-def main() -> int:
-    artwork = find_artwork()
-    size = check_artwork(artwork)
-    target = publish(artwork)
-    print(f"Design: {TITLE}")
-    print(f"Artwork: entry.png ({size} bytes, 1024x1024)")
-    print(f"Published entry.png to {target}")
+def main():
+    src = source_path()
+    dest = os.path.join(output_dir(), IMAGE_NAME)
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    shutil.copyfile(src, dest)
+    # The grader runs this program twice and compares the bytes; a short
+    # copy would only surface then, so check the size now and fail loudly.
+    if os.path.getsize(dest) != os.path.getsize(src):
+        raise IOError("copied image is incomplete: %s" % dest)
     return 0
 
 
